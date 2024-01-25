@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const {Category} = require('../models/category');
-const { validateToken } = require('../helper/jwt');
+const { validateToken, checkAdmin } = require('../helper/jwt');
 
 router.get(`/`, async (req, res) => {
         const categoryList = await Category.find();
@@ -20,7 +20,7 @@ router.get('/:id', async (req, res) => {
 })
 
 
-router.post(`/`,validateToken, async (req, res) => {
+router.post(`/`,checkAdmin, async (req, res) => {
     let category = new Category({
         name: req.body.name,
         icon: req.body.icon,
@@ -32,7 +32,7 @@ router.post(`/`,validateToken, async (req, res) => {
     res.status(200).send(category);
 });
 
-router.put('/:id',validateToken, async (req, res) => {
+router.put('/:id',checkAdmin, async (req, res) => {
     const category = await Category.findByIdAndUpdate(
         req.params.id,
         {
@@ -51,7 +51,7 @@ router.put('/:id',validateToken, async (req, res) => {
 });
 
 // api/v1/id
-router.delete('/:id',validateToken, async (req, res) => {
+router.delete('/:id',checkAdmin, async (req, res) => {
     let category = await Category.findByIdAndDelete(req.params.id);
 
     if (category) {

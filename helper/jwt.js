@@ -26,14 +26,34 @@ async function isRevoked(req, token) {
     }
 }
 
+const checkAdmin = async (req, res, next) => {
+    try {
+        const token = req.cookies && req.cookies.token;
+        if (!token) {
+            console.error("Unauthorized: No token provided");
+            return res.status(400).send({message: "No token provided"})
+        }
+        
+        const user = jwt.verify(token, process.env.secret);
+        if (user.isAdmin === false) {
+            console.error("Unauthorized: You are not admin");
+            return res.status(400).send({message: "You are not admin"});
+        }
+        req.user = user;
+        next();
+    } catch (err) {
+        console.error("Unauthorized: Invalid token");
+        res.clearCookie("token");
+        return res.status(400).send({message: "Invalid Token"})
+    }
+}
 
 const validateToken = async (req, res, next) => {
     try {
         const token = req.cookies && req.cookies.token;
-
         if (!token) {
             console.error("Unauthorized: No token provided");
-            return res.redirect("/");
+            return res.status(400).send({message: "No token provided"})
         }
 
         const user = jwt.verify(token, process.env.secret);
@@ -42,9 +62,13 @@ const validateToken = async (req, res, next) => {
     } catch (err) {
         console.error("Unauthorized: Invalid token");
         res.clearCookie("token");
-        return res.redirect("/");
+        return res.status(400).send({message: "Invalid Token"})
     }
-};
+}
+
+
+
+
 
 
 
@@ -72,4 +96,4 @@ const validateToken = async (req, res, next) => {
 //     }
 // }
 
-module.exports = {authJWT, validateToken};
+module.exports = {authJWT, validateToken, checkAdmin};

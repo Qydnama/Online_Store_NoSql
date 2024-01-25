@@ -2,16 +2,17 @@ const express = require('express');
 const router = express.Router();
 const { Order } = require('../models/order');
 const { OrderItem } = require('../models/orderItem');
-const { validateToken } = require('../helper/jwt');
+const { validateToken, checkAdmin } = require('../helper/jwt');
+const { Payment } = require('../models/payment');
 
-router.get(`/`, validateToken, async (req,res) => {
+router.get(`/`, checkAdmin, async (req,res) => {
     const ordersList = await Order.find().populate('user', 'name').populate({
         path: 'orderItems',
+        select: 'quantity',
         populate: {
             path: 'product',
             select: 'name price'
         },
-        select: 'quantity'
     }).sort({'dateOrdered': 1});
 
     if(!ordersList) {
@@ -36,6 +37,11 @@ router.get(`/:id`, validateToken, async (req,res) => {
 });
 
 router.post(`/`, validateToken, async (req, res) => {
+    if(!req.body || !req.body.orderItems || !req.body.paymentMethod) {
+        console.log(req.body.orderItems)
+        return res.status(400).send('Order cannot be created');
+    }
+
     const orderItemsIDs = await Promise.all(req.body.orderItems.map(async orderItem => {
         let newOrderItem = new OrderItem({
             quantity: orderItem.quantity,
@@ -45,7 +51,6 @@ router.post(`/`, validateToken, async (req, res) => {
         newOrderItem = await newOrderItem.save();
         return newOrderItem._id;
     }));
-
 
     const totalPrices = await Promise.all(orderItemsIDs.map( async (orderItemId) => {
         const orderItem = await OrderItem.findById(orderItemId).populate('product', 'price');
@@ -57,6 +62,12 @@ router.post(`/`, validateToken, async (req, res) => {
 
     const totalPrice = totalPrices.reduce((a,b) => a + b, 0);
 
+    const newPayment = new Payment({
+        paymentMethod: req.body.paymentMethod
+    });
+    const paymentMethodID = await newPayment.save().then(newPayment => newPayment._id);
+
+
     let order = new Order({
         orderItems: orderItemsIDs,
         shippingAddress1: req.body.shippingAddress1,
@@ -66,6 +77,7 @@ router.post(`/`, validateToken, async (req, res) => {
         country: req.body.country,
         phone: req.body.phone,
         status: req.body.status,
+        payment: paymentMethodID,
         totalPrice: totalPrice,
         user: req.body.user
     });
@@ -79,11 +91,11 @@ router.post(`/`, validateToken, async (req, res) => {
     res.status(200).send(order);
 });
 
-router.put('/:id',validateToken, async (req, res) => {
+router.put('/:id',checkAdmin, async (req, res) => {
     const order = await Order.findByIdAndUpdate(
         req.params.id,
         {
-            status: req.body.status
+            status: req.body.status,
         },
         { new: true }
     );
@@ -95,7 +107,7 @@ router.put('/:id',validateToken, async (req, res) => {
     }
 });
 
-router.delete('/:id',validateToken, async (req, res) => {
+router.delete('/:id',checkAdmin, async (req, res) => {
     let order = await Order.findByIdAndDelete(req.params.id);
 
     if (order) {
@@ -106,15 +118,22 @@ router.delete('/:id',validateToken, async (req, res) => {
             return res.status(404).json({ success: false, message: "Error on deleting Order Items" });
         }
         }));
+
+        let payment = await Payment.findByIdAndDelete(order.payment);
+
+        if (!payment) {
+            return res.status(404).json({ success: false, message: "Error on deleting Payment" });
+        }
         
 
         return res.status(200).json({ success: true, message: "Order is deleted" });
     } else {
         return res.status(404).json({ success: false, message: "Order not found" });
     }
+
 });
 
-router.get('/get/totalsales',validateToken, async (req, res) => {
+router.get('/get/totalsales',checkAdmin, async (req, res) => {
     const totalSales = await Order.aggregate([
         { $group: { _id: null, totalsales: {$sum: '$totalPrice'}}}
     ]);
@@ -126,7 +145,7 @@ router.get('/get/totalsales',validateToken, async (req, res) => {
     res.status(200).send({totalSales: totalSales.pop().totalsales});
 });
 
-router.get(`/get/count`,validateToken, async (req,res) => {
+router.get(`/get/count`,checkAdmin, async (req,res) => {
     const orderCount = await Order.countDocuments();
     
     if(!orderCount) {

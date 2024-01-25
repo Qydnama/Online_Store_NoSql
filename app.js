@@ -35,7 +35,6 @@ const categoriesRoutes = require('./routes/categories');
 const productsRoutes = require('./routes/products');
 const usersRoutes = require('./routes/users');
 const ordersRoutes = require('./routes/orders');
-const paymentRoutes = require('./routes/payments');
 
 
 
@@ -43,7 +42,6 @@ app.use(`${api}/categories`, categoriesRoutes);
 app.use(`${api}/products`, productsRoutes);
 app.use(`${api}/users`, usersRoutes);
 app.use(`${api}/orders`, ordersRoutes);
-app.use(`${api}/payments`, paymentRoutes);
 
 
 //mongo database connection
@@ -57,20 +55,3 @@ db.once('open', () => console.log('Connected to the Database'));
 app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
 });
-
-
-
-// const session = require('express-session');
-
-
-// app.use(session({
-    //     secret: 'my secret key',
-    //     saveUninitialized: true,
-    //     resave: false
-    // }));
-    
-// app.use((req, res, next) => {
-    //     res.locals.message = req.session.message;
-    //     delete req.session.message;
-    //     next();
-    // })

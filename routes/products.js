@@ -4,7 +4,7 @@ const { Product } = require('../models/product');
 const { Category } = require('../models/category');
 const mongoose = require('mongoose');
 const multer = require('multer');
-const { validateToken } = require('../helper/jwt');
+const { validateToken, checkAdmin } = require('../helper/jwt');
 
 const FILE_TYPE_MAP = {
     'image/png': 'png',
@@ -63,17 +63,18 @@ router.get(`/:id`, async (req,res) => {
 
 
 
-router.post(`/`,validateToken, uploadOptions.single('image'), async (req, res) => {
+router.post(`/`, checkAdmin, uploadOptions.single('image'), async (req, res) => {
     const category = await Category.findById(req.body.category);
 
     if (!category) {
         return res.status(400).json({success: false, error: "Indefined Category"});
     }
-
+    let fileName;
     const file = req.file;
-    if(!file) return res.status(400).send('No image in the request');
-    
-    const fileName = req.file.filename;
+    // if(!file) return res.status(400).send('No image in the request');
+    if (file !== undefined) {
+        fileName = file.filename;
+    } else {fileName = ''}
     const basePath = `${req.protocol}://${req.get('host')}/public/uploads/`;
     let product = new Product({
         name: req.body.name,
@@ -95,13 +96,12 @@ router.post(`/`,validateToken, uploadOptions.single('image'), async (req, res) =
     return res.status(200).send(product);
 });
 
-router.put('/:id',validateToken , async (req, res) => {
+router.put('/:id', checkAdmin, async (req, res) => {
     if (!mongoose.isValidObjectId(req.params.id)) {
         return res.status(400).send('Invalid ID');
     }
 
     const category = await Category.findById(req.body.category);
-
     if (!category) {
         return res.status(400).json({success: false, error: "Indefined Category"});
     }
@@ -129,7 +129,7 @@ router.put('/:id',validateToken , async (req, res) => {
     }
 });
 
-router.delete('/:id', validateToken, async (req, res) => {
+router.delete('/:id', checkAdmin, async (req, res) => {
     let product = await Product.findByIdAndDelete(req.params.id);
 
     if (product) {
@@ -163,7 +163,7 @@ router.get(`/get/featured/:count?`, async (req,res) => {
     res.send(product);
 
 
-})
+});
 
 
 
